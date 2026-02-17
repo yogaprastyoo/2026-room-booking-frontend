@@ -25,7 +25,7 @@ import type {
 export async function getBuildings(
   params?: GetBuildingsParams
 ): Promise<BuildingsListResponse> {
-  const response = await apiClient.get<BuildingsListResponse>("/api/buildings", {
+  const response = await apiClient.get<BuildingsListResponse>("/buildings", {
     params,
   });
   return response.data;
@@ -40,7 +40,7 @@ export async function getBuildings(
  * Endpoint: GET /api/buildings/{id}
  */
 export async function getBuildingById(id: string): Promise<Building> {
-  const response = await apiClient.get<Building>(`/api/buildings/${id}`);
+  const response = await apiClient.get<Building>(`/buildings/${id}`);
   return response.data;
 }
 
@@ -55,7 +55,7 @@ export async function getBuildingById(id: string): Promise<Building> {
 export async function createBuilding(
   data: CreateBuildingRequest
 ): Promise<Building> {
-  const response = await apiClient.post<Building>("/api/buildings", data);
+  const response = await apiClient.post<Building>("/buildings", data);
   return response.data;
 }
 
@@ -72,7 +72,7 @@ export async function updateBuilding(
   id: string,
   data: UpdateBuildingRequest
 ): Promise<Building> {
-  const response = await apiClient.put<Building>(`/api/buildings/${id}`, data);
+  const response = await apiClient.put<Building>(`/buildings/${id}`, data);
   return response.data;
 }
 
@@ -86,5 +86,5 @@ export async function updateBuilding(
  * Note: Backend will return conflict if building has associated rooms
  */
 export async function deleteBuilding(id: string): Promise<void> {
-  await apiClient.delete(`/api/buildings/${id}`);
+  await apiClient.delete(`/buildings/${id}`);
 }
