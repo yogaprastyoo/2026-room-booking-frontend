@@ -56,11 +56,19 @@ export function DeleteBookingDialog({
             </div>
             <div className="text-sm">
               <span className="font-medium">Start:</span>{" "}
-              {new Date(booking.booking_start).toLocaleString()}
+              {new Date(booking.booking_start).toLocaleString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                dateStyle: 'short',
+                timeStyle: 'short',
+              })}
             </div>
             <div className="text-sm">
               <span className="font-medium">End:</span>{" "}
-              {new Date(booking.booking_end).toLocaleString()}
+              {new Date(booking.booking_end).toLocaleString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                dateStyle: 'short',
+                timeStyle: 'short',
+              })}
             </div>
             <div className="text-sm">
               <span className="font-medium">Status:</span> {booking.status}

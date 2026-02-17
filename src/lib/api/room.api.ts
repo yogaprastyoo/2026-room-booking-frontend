@@ -30,10 +30,28 @@ export async function getRooms(
       ? {
           page: params.page,
           pageSize: params.pageSize,
-          buildingId: params.buildingId,
         }
       : undefined,
   });
+  
+  /**
+   * Client-side filtering by buildingId
+   * Backend doesn't support buildingId parameter (verified in docs/v1.json)
+   * So we filter the results client-side when buildingId is provided
+   */
+  if (params?.buildingId && response.data.items) {
+    const filteredItems = response.data.items.filter(
+      (room) => room.building_id === params.buildingId
+    );
+    
+    return {
+      ...response.data,
+      items: filteredItems,
+      total: filteredItems.length,
+      totalPages: Math.ceil(filteredItems.length / (params.pageSize || 10)),
+    };
+  }
+  
   return response.data;
 }
 

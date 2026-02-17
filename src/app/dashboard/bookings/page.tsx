@@ -38,18 +38,7 @@ export default function BookingsPage() {
     queryFn: () => getBuildings({ page: 1, pageSize: 100 }),
   })
 
-  const { data: roomsData } = useQuery({
-    queryKey: ["rooms", { buildingId }],
-    queryFn: () =>
-      getRooms({
-        page: 1,
-        pageSize: 100,
-        buildingId: buildingId || undefined,
-      }),
-    enabled: !!buildingId,
-  })
-
-  // Fetch ALL rooms for lookup (to get building_id from room_id)
+  // Fetch ALL rooms once for both lookup and filtering
   const { data: allRoomsData } = useQuery({
     queryKey: ["rooms", "all"],
     queryFn: () =>
@@ -59,19 +48,42 @@ export default function BookingsPage() {
       }),
   })
 
+  // Client-side filter rooms by building for dropdown
+  const filteredRooms = buildingId
+    ? allRoomsData?.items.filter((room) => room.building_id === buildingId) || []
+    : []
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["bookings", { page, buildingId, roomId, status, borrowerName, startDate, endDate }],
-    queryFn: () =>
-      getBookings({
+    queryFn: () => {
+      // Convert date strings (treated as Asia/Jakarta timezone) to UTC ISO datetime for PostgreSQL
+      // User sees dates in Jakarta time, so we need to convert Jakarta date range to UTC
+      let startDateTime: string | undefined
+      let endDateTime: string | undefined
+      
+      if (startDate) {
+        // Start of day in Jakarta (00:00 WIB) = previous day 17:00 UTC (UTC+7)
+        const jakartaStart = `${startDate}T00:00:00+07:00`
+        startDateTime = new Date(jakartaStart).toISOString()
+      }
+      
+      if (endDate) {
+        // End of day in Jakarta (23:59 WIB) = same day 16:59 UTC (UTC+7)
+        const jakartaEnd = `${endDate}T23:59:59+07:00`
+        endDateTime = new Date(jakartaEnd).toISOString()
+      }
+
+      return getBookings({
         Page: page,
         PageSize: 10,
         BuildingId: buildingId || undefined,
         RoomId: roomId || undefined,
         Status: status || undefined,
         BorrowerName: borrowerName || undefined,
-        StartDate: startDate || undefined,
-        EndDate: endDate || undefined,
-      }),
+        StartDate: startDateTime,
+        EndDate: endDateTime,
+      })
+    },
   })
 
   // Reset page when filters change
@@ -200,7 +212,7 @@ export default function BookingsPage() {
               disabled={!buildingId}
             >
               <option value="">All Rooms</option>
-              {roomsData?.items.map((room) => (
+              {filteredRooms.map((room) => (
                 <option key={room.id} value={room.id}>
                   {room.name}
                 </option>
@@ -248,7 +260,7 @@ export default function BookingsPage() {
             </label>
             <Input
               id="start-date-filter"
-              type="datetime-local"
+              type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
@@ -260,7 +272,7 @@ export default function BookingsPage() {
             </label>
             <Input
               id="end-date-filter"
-              type="datetime-local"
+              type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
@@ -300,10 +312,18 @@ export default function BookingsPage() {
               <TableCell>{buildingName}</TableCell>
               <TableCell>{roomName}</TableCell>
               <TableCell>
-                {new Date(booking.booking_start).toLocaleString()}
+                {new Date(booking.booking_start).toLocaleString('id-ID', {
+                  timeZone: 'Asia/Jakarta',
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })}
               </TableCell>
               <TableCell>
-                {new Date(booking.booking_end).toLocaleString()}
+                {new Date(booking.booking_end).toLocaleString('id-ID', {
+                  timeZone: 'Asia/Jakarta',
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })}
               </TableCell>
               <TableCell>
                 <StatusBadge status={booking.status} />
