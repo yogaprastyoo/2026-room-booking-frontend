@@ -27,12 +27,21 @@ export default function RoomsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["rooms", { page, buildingId }],
-    queryFn: () =>
-      getRooms({
+    queryFn: () => {
+      // When filtering by building, fetch all rooms for client-side filtering
+      if (buildingId) {
+        return getRooms({
+          page: 1,
+          pageSize: 1000,
+          buildingId: buildingId,
+        })
+      }
+      // Without filter, use normal pagination
+      return getRooms({
         page,
         pageSize: 10,
-        buildingId: buildingId || undefined,
-      }),
+      })
+    },
   })
 
   // Reset page when building filter changes
@@ -40,8 +49,8 @@ export default function RoomsPage() {
     setPage(1)
   }, [buildingId])
 
-  const hasPrevious = page > 1
-  const hasNext = data ? page < data.totalPages : false
+  const hasPrevious = page > 1 && !buildingId
+  const hasNext = data ? (page < data.totalPages && !buildingId) : false
 
   // Helper to get building info for a room
   const getBuildingInfo = (buildingId: string) => {

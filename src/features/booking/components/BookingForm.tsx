@@ -19,6 +19,34 @@ import {
 import { useBookingMutations } from "../hooks/useBookingMutations"
 import { cn } from "@/lib/utils"
 
+// Helper to convert UTC datetime to Asia/Jakarta local datetime for input
+function toJakartaDateTimeLocal(utcDateString: string): string {
+  const date = new Date(utcDateString)
+  // Convert to Asia/Jakarta timezone
+  const jakartaTime = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+  // Format to YYYY-MM-DDTHH:mm for datetime-local input
+  const year = jakartaTime.getFullYear()
+  const month = String(jakartaTime.getMonth() + 1).padStart(2, '0')
+  const day = String(jakartaTime.getDate()).padStart(2, '0')
+  const hours = String(jakartaTime.getHours()).padStart(2, '0')
+  const minutes = String(jakartaTime.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+// Helper to convert datetime-local input (treated as Jakarta time) to UTC ISO string
+function jakartaDateTimeLocalToUTC(localDateTimeString: string): string {
+  // Parse the local datetime string as Jakarta time
+  const [datePart, timePart] = localDateTimeString.split('T')
+  const [year, month, day] = datePart.split('-')
+  const [hours, minutes] = timePart.split(':')
+  
+  // Create date string in ISO format with Jakarta timezone offset (+07:00)
+  const jakartaISOString = `${year}-${month}-${day}T${hours}:${minutes}:00+07:00`
+  
+  // Convert to UTC
+  return new Date(jakartaISOString).toISOString()
+}
+
 interface BookingFormData {
   room_id: string
   borrower_name: string
@@ -49,7 +77,7 @@ export function BookingForm({ open, onOpenChange, booking }: BookingFormProps) {
     queryFn: () =>
       getRooms({
         page: 1,
-        pageSize: 100,
+        pageSize: 1000, // Fetch all rooms for client-side filtering
         buildingId: selectedBuildingId || undefined,
       }),
     enabled: open && !!selectedBuildingId,
@@ -67,10 +95,10 @@ export function BookingForm({ open, onOpenChange, booking }: BookingFormProps) {
       room_id: booking?.room_id || "",
       borrower_name: booking?.borrower_name || "",
       booking_start: booking?.booking_start
-        ? new Date(booking.booking_start).toISOString().slice(0, 16)
+        ? toJakartaDateTimeLocal(booking.booking_start)
         : "",
       booking_end: booking?.booking_end
-        ? new Date(booking.booking_end).toISOString().slice(0, 16)
+        ? toJakartaDateTimeLocal(booking.booking_end)
         : "",
       notes: booking?.notes || "",
     },
@@ -78,33 +106,39 @@ export function BookingForm({ open, onOpenChange, booking }: BookingFormProps) {
 
   const roomId = watch("room_id")
 
+  // Reset form when dialog opens/closes
   useEffect(() => {
     if (open) {
       reset({
         room_id: booking?.room_id || "",
         borrower_name: booking?.borrower_name || "",
         booking_start: booking?.booking_start
-          ? new Date(booking.booking_start).toISOString().slice(0, 16)
+          ? toJakartaDateTimeLocal(booking.booking_start)
           : "",
         booking_end: booking?.booking_end
-          ? new Date(booking.booking_end).toISOString().slice(0, 16)
+          ? toJakartaDateTimeLocal(booking.booking_end)
           : "",
         notes: booking?.notes || "",
       })
-
-      if (booking?.room_id) {
-        const allRooms = roomsData?.items || []
-        const room = allRooms.find((r) => r.id === booking.room_id)
-        if (room) {
-          setSelectedBuildingId(room.building_id)
-        }
-      }
+      setSelectedBuildingId("")
+    } else {
+      setSelectedBuildingId("")
     }
-  }, [open, booking, reset, roomsData])
+  }, [open, booking, reset])
+
+  // Clear room selection when building changes (create mode only)
+  useEffect(() => {
+    if (!isEdit && selectedBuildingId) {
+      reset((formValues) => ({ ...formValues, room_id: "" }))
+    }
+  }, [selectedBuildingId, isEdit, reset])
 
   const onSubmit = async (data: BookingFormData) => {
-    const bookingStart = new Date(data.booking_start)
-    const bookingEnd = new Date(data.booking_end)
+    // Convert Jakarta time input to UTC for comparison and submission
+    const bookingStartUTC = jakartaDateTimeLocalToUTC(data.booking_start)
+    const bookingEndUTC = jakartaDateTimeLocalToUTC(data.booking_end)
+    const bookingStart = new Date(bookingStartUTC)
+    const bookingEnd = new Date(bookingEndUTC)
     const now = new Date()
 
     // Validate dates
@@ -127,8 +161,8 @@ export function BookingForm({ open, onOpenChange, booking }: BookingFormProps) {
     const payload = {
       room_id: data.room_id,
       borrower_name: data.borrower_name,
-      booking_start: new Date(data.booking_start).toISOString(),
-      booking_end: new Date(data.booking_end).toISOString(),
+      booking_start: bookingStartUTC,
+      booking_end: bookingEndUTC,
       notes: data.notes || null,
     }
 
